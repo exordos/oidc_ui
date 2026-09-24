@@ -2,6 +2,10 @@ name: build & deploy
 
 on:
   push:
+    branches-ignore:
+      - master
+    tags:
+      - '*'
   workflow_dispatch:
     inputs:
       build_target:
