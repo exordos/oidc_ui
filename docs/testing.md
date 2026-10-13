@@ -181,7 +181,8 @@ Expected sequence:
 The example redirects to the existing [Yandex site](https://ya.ru/).
 Inspect the outgoing callback URL in DevTools with Preserve log enabled:
 it should contain a code and the matching state. This checks the UI
-login/consent redirect only; the site is not your OIDC relying application. A complete OIDC test
+login/consent redirect only; the site is not your OIDC relying application.
+A complete OIDC test
 requires a real relying application to exchange the code at the discovered
 token endpoint, validate its received ID token, and establish its own session.
 Configure that application's server with client ID `oidc-ui-example` and the
