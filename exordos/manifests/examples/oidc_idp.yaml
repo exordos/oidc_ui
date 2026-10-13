@@ -1,0 +1,82 @@
+# Copyright 2026 Genesis Corporation.
+# Licensed under the Apache License, Version 2.0.
+#
+# Replace app.example.com and core.example.com before installation.
+# This example reserves / on Core's HTTP vhost for the IdP login redirect.
+# The LB appends $request_uri to the redirect URL, preserving OIDC parameters.
+
+name: "oidc_idp_example"
+description: "Example application IAM client and IdP using OIDC UI"
+schema_version: 1
+version: "0.0.1"
+api_version: "v1"
+
+requirements:
+  core:
+    from_version: "0.0.0"
+  oidc_ui:
+    from_version: "0.0.0"
+
+imports:
+  core_lb_http_vhost:
+    element: "$core"
+    kind: "resource"
+    link: "$core.network.lb.$core_lb.vhosts.$core_lb_core_http"
+
+resources:
+  $core.secret.passwords:
+    example_oidc_signing_key:
+      name: "example-oidc-signing-key"
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      method: AUTO_HEX
+      constructor:
+        kind: plain
+      default_length: 64
+    example_oidc_client_secret:
+      name: "example-oidc-client-secret"
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      method: AUTO_HEX
+      constructor:
+        kind: plain
+      default_length: 64
+
+  $core.iam.clients:
+    example_oidc_client:
+      name: "Example application"
+      description: "OIDC client for the example application"
+      client_id: "oidc-ui-example"
+      secret: $core.secret.passwords.$example_oidc_client_secret:value
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      registration_auto_provision: false
+      signature_algorithm:
+        kind: HS256
+        secret_uuid: $core.secret.passwords.$example_oidc_signing_key:uuid
+        previous_secret_uuid: null
+
+  $core.iam.idp:
+    example_oidc_idp:
+      uuid: "62c9b423-093d-4cef-aeb7-a9be8f4ba85e"
+      name: "Example application"
+      description: "Sign in to the example application"
+      iam_client: $core.iam.clients.$example_oidc_client:uuid
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      scope: "openid profile email"
+      nonce_required: true
+      callback:
+        kind: callback_uri_list
+        callbacks:
+          - "https://app.example.com/oidc/callback"
+
+  $oidc_idp_example.imports.$core_lb_http_vhost.routes:
+    example_oidc_login_redirect:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $oidc_idp_example.imports.$core_lb_http_vhost:uuid
+      condition:
+        kind: exact
+        value: /
+        allowed_ips:
+          - 0.0.0.0/0
+        actions:
+          - kind: redirect
+            code: 302
+            url: "https://core.example.com/auth"

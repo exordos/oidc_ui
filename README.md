@@ -83,6 +83,35 @@ The default public artifact root is `https://repo.exordos.com/exordos-elements`.
 Branches other than `master`, tags, and manual runs trigger builds;
 Dependabot runs are skipped.
 
+### Example IdP
+
+[`exordos/manifests/examples/oidc_idp.yaml`](exordos/manifests/examples/oidc_idp.yaml)
+creates an IAM client, generated client and HS256 signing secrets, and an
+IdP bound to that client. Install `core` and `oidc_ui` first, replace the
+`core.example.com` and `app.example.com` domains in the example, then install it:
+
+```bash
+exordos em elements install exordos/manifests/examples/oidc_idp.yaml
+```
+
+Configure the application with client ID `oidc-ui-example`, the generated
+`example-oidc-client-secret` password value, callback URL
+`https://app.example.com/oidc/callback`, and discovery URL:
+
+```text
+https://core.example.com/api/core/v1/iam/idp/62c9b423-093d-4cef-aeb7-a9be8f4ba85e/.well-known/openid-configuration
+```
+
+Request `openid profile email` and send a nonce. Users must already exist:
+the example disables automatic registration provisioning. Client secrets
+belong in the application's server configuration, never in the browser UI.
+
+Core currently sends authorization requests to `/?auth_uuid=...&idp_uuid=...`.
+The example therefore adds an exact `/` redirect to `/auth/` that preserves
+the query string. This reserves `/` on Core's HTTP vhost; if another app uses
+that URL, adapt your deployment's login routing before installing the example.
+The example is installed separately and is not included in the default build.
+
 ## Documentation
 
 Project documentation is available in the `docs/` directory.
