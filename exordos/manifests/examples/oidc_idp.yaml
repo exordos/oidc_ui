@@ -1,7 +1,7 @@
 # Copyright 2026 Genesis Corporation.
 # Licensed under the Apache License, Version 2.0.
 #
-# Replace app.example.com before installation.
+# Replace app.example.ru before installation.
 # Install Core with its OIDC vhost on the Core LB and the oidc_ui element first.
 # Use the OIDC hostname for discovery and authorization, so Core redirects
 # back to the UI on the same origin. The IdP discovery URL is:
@@ -61,4 +61,4 @@ resources:
       callback:
         kind: callback_uri_list
         callbacks:
-          - "https://app.example.com/oidc/callback"
+          - "https://app.example.ru/oidc/callback"

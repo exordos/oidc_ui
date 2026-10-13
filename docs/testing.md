@@ -94,7 +94,7 @@ The separately installed
 - An application IAM client with client ID `oidc-ui-example`.
 - Generated client and HS256 signing secrets.
 - An IdP with UUID `62c9b423-093d-4cef-aeb7-a9be8f4ba85e`.
-- The allowed callback `https://app.example.com/oidc/callback`.
+- The allowed callback `https://app.example.ru/oidc/callback`.
 
 For a complete test with a relying application, replace the callback in a
 local copy of the manifest with that application's actual callback. The
@@ -160,7 +160,7 @@ Open the following URL. Substitute your OIDC hostname and installed callback
 if you changed them:
 
 ```text
-http://oidc.local.genesis-core.tech/api/core/v1/iam/idp/62c9b423-093d-4cef-aeb7-a9be8f4ba85e/actions/authorize/invoke?client_id=oidc-ui-example&redirect_uri=https%3A%2F%2Fapp.example.com%2Foidc%2Fcallback&response_type=code&scope=openid%20profile%20email&state=local-test&nonce=local-test-nonce
+http://oidc.local.genesis-core.tech/api/core/v1/iam/idp/62c9b423-093d-4cef-aeb7-a9be8f4ba85e/actions/authorize/invoke?client_id=oidc-ui-example&redirect_uri=https%3A%2F%2Fapp.example.ru%2Foidc%2Fcallback&response_type=code&scope=openid%20profile%20email&state=local-test&nonce=local-test-nonce
 ```
 
 Use a fresh authorization request for each run. In a real integration the
@@ -233,7 +233,7 @@ and viewport alongside screenshots; omit passwords, tokens, and client secrets.
 | Consent button disabled | Check `auth_uuid`, successful profile loading, and whether confirmation is already in progress. |
 | Repeated nginx reloads and Core `IN_PROGRESS` | Check for the obsolete second `oidc_lb`. The current manifest has one `core_lb` with two vhosts; inspect agent logs and resource convergence. |
 | Redirect to the wrong hostname | Start discovery and authorization on the OIDC hostname. Check forwarded headers and the callback installed in the IdP. |
-| Callback page cannot load | The example's `app.example.com` callback is a placeholder. Use an actual relying application for code exchange. |
+| Callback page cannot load | The example's `app.example.ru` callback is a placeholder. Use an actual relying application for code exchange. |
 
 On the Core node, useful read-only checks include:
 
