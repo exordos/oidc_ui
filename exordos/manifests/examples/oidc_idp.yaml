@@ -1,0 +1,65 @@
+# Copyright 2026 Genesis Corporation.
+# Licensed under the Apache License, Version 2.0.
+#
+# https://ya.ru/ is used only to observe the final redirect.
+# For a complete OIDC test, replace it with your application callback.
+# Install Core with its OIDC vhost on the Core LB and the oidc_ui element first.
+# Use the OIDC hostname for discovery and authorization, so Core redirects
+# back to the UI on the same origin. The IdP discovery URL is:
+# https://<oidc-host>/api/core/v1/iam/idp/62c9b423-093d-4cef-aeb7-a9be8f4ba85e/.well-known/openid-configuration
+
+name: "oidc_idp_example"
+description: "Example application IAM client and IdP using OIDC UI"
+schema_version: 1
+version: "0.0.1"
+api_version: "v1"
+
+requirements:
+  core:
+    from_version: "0.0.0"
+  oidc_ui:
+    from_version: "0.0.0"
+
+resources:
+  $core.secret.passwords:
+    example_oidc_signing_key:
+      name: "example-oidc-signing-key"
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      method: AUTO_HEX
+      constructor:
+        kind: plain
+      default_length: 64
+    example_oidc_client_secret:
+      name: "example-oidc-client-secret"
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      method: AUTO_HEX
+      constructor:
+        kind: plain
+      default_length: 64
+
+  $core.iam.clients:
+    example_oidc_client:
+      name: "Example application"
+      description: "OIDC client for the example application"
+      client_id: "oidc-ui-example"
+      secret: $core.secret.passwords.$example_oidc_client_secret:value
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      registration_auto_provision: false
+      signature_algorithm:
+        kind: HS256
+        secret_uuid: $core.secret.passwords.$example_oidc_signing_key:uuid
+        previous_secret_uuid: null
+
+  $core.iam.idp:
+    example_oidc_idp:
+      uuid: "62c9b423-093d-4cef-aeb7-a9be8f4ba85e"
+      name: "Example application"
+      description: "Sign in to the example application"
+      iam_client: $core.iam.clients.$example_oidc_client:uuid
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      scope: "openid profile email"
+      nonce_required: true
+      callback:
+        kind: callback_uri_list
+        callbacks:
+          - "https://ya.ru/"
