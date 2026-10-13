@@ -1,0 +1,8 @@
+# Copyright 2026 Genesis Corporation.
+# Licensed under the Apache License, Version 2.0.
+
+build:
+  elements:
+    - manifest: manifests/oidc_ui.yaml.j2
+      artifacts:
+        - path: ../web.tar.zst

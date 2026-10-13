@@ -1,0 +1,33 @@
+# Copyright 2026 Genesis Corporation.
+# Licensed under the Apache License, Version 2.0.
+
+name: "oidc_ui"
+description: "Exordos OIDC authentication UI"
+schema_version: 1
+version: "{{ version }}"
+api_version: "v1"
+
+requirements:
+  core:
+    from_version: "0.0.0"
+
+imports:
+  core_lb_http_vhost:
+    element: "$core"
+    kind: "resource"
+    link: "$core.network.lb.$core_lb.vhosts.$core_lb_core_http"
+
+resources:
+  $oidc_ui.imports.$core_lb_http_vhost.routes:
+    core_lb_oidc_ui_route:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $oidc_ui.imports.$core_lb_http_vhost:uuid
+      condition:
+        kind: prefix
+        value: /auth/
+        allowed_ips:
+          - 0.0.0.0/0
+        actions:
+          - kind: local_dir_download
+            url: "{{ repository | default('https://repo.exordos.com/exordos-elements') }}/oidc_ui/{{ version }}/artifacts/web.tar.zst"
+            is_spa: true

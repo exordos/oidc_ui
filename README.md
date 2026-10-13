@@ -24,7 +24,7 @@ This project was created with the assistance of AI.
 
 ### Prerequisites
 
-- Node.js >= 18
+- Node.js >= 24
 - npm >= 9
 
 ### Installation
@@ -50,6 +50,38 @@ npm run build
 ```bash
 npm run preview
 ```
+
+## Exordos element
+
+The `oidc_ui` element serves the UI at `/auth/` on Core's existing HTTP
+load balancer. It requires the `core` element and uses its `/api/core/`
+routes. No separate VM image is needed.
+
+Install the Exordos CLI and `zstd`, then run `make build`. This installs npm
+dependencies, builds the UI with `/auth/` as its asset base, archives the
+contents of `dist/` as `web.tar.zst`, and packages the archive with the rendered
+manifest under `output/exordos-elements/oidc_ui/`.
+
+Publish the built element before installing it: the load balancer downloads
+its archive from the repository. For a custom repository, render the manifest
+with its public element root URL:
+
+```bash
+make web
+exordos build -f --manifest-var repository=https://repo.example.com/exordos-elements
+exordos push -c /path/to/exordos.push.yaml -t local -f --latest
+exordos em elements install output/exordos-elements/oidc_ui/<version>/manifests/oidc_ui.yaml
+```
+
+Use `/auth/?idp_uuid=<idp-uuid>` as the login URL, preserving any authorization
+request query parameters supplied by the IdP. The trailing slash is required.
+
+CI builds the web archive and passes it to `exordos/exordos_ci`'s reusable
+`element_build.yml` workflow. Configure the repository secret `PUSH_CFG` with
+a base64-encoded `exordos.push.yaml` for the workflow's `local` push target.
+The default public artifact root is `https://repo.exordos.com/exordos-elements`.
+Branches other than `master`, tags, and manual runs trigger builds;
+Dependabot runs are skipped.
 
 ## Documentation
 
