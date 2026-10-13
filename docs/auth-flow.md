@@ -436,3 +436,8 @@ To test the basic login and token storage behavior with and without persistence:
 
 At the current stage, after a successful login the application **does not** switch to another screen and does not perform any navigation. Further steps (showing a protected UI, sign-out flow, etc.) can be added later on top of the authentication flow described here.
 
+
+## Testing
+
+See [Testing OIDC UI](testing.md) for automated checks and a local-stand
+walkthrough covering discovery, default-client login, consent, and callbacks.
