@@ -58,14 +58,14 @@ Set the stand's hostname and reachable Core IP on your workstation:
 ```bash
 STAND_ORIGIN=http://oidc.local.genesis-core.tech
 STAND_HOST=oidc.local.genesis-core.tech
-STAND_CORE_IP=10.30.0.2
+STAND_CORE_IP=10.20.0.2
 ```
 
 Replace these example values if your stand differs. For browser testing,
 configure DNS or add this entry to the workstation's `/etc/hosts`:
 
 ```text
-10.30.0.2 oidc.local.genesis-core.tech
+10.20.0.2 oidc.local.genesis-core.tech
 ```
 
 Core's default OIDC vhost listens on HTTP port 80. Use HTTPS URLs only if
