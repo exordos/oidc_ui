@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build project
-        run: npm run build -- --base=/auth/
+        run: npm run build
       - name: Archive Web Artifact
         run: tar --zstd -cf web.tar.zst -C dist .
       - uses: actions/upload-artifact@v7

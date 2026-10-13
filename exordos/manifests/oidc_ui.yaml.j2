@@ -12,19 +12,19 @@ requirements:
     from_version: "0.0.0"
 
 imports:
-  core_lb_http_vhost:
+  oidc_lb_http_vhost:
     element: "$core"
     kind: "resource"
-    link: "$core.network.lb.$core_lb.vhosts.$core_lb_core_http"
+    link: "$core.network.lb.$oidc_lb.vhosts.$oidc_lb_http"
 
 resources:
-  $oidc_ui.imports.$core_lb_http_vhost.routes:
-    core_lb_oidc_ui_route:
+  $oidc_ui.imports.$oidc_lb_http_vhost.routes:
+    oidc_ui_route:
       project_id: "12345678-c625-4fee-81d5-f691897b8142"
-      parent: $oidc_ui.imports.$core_lb_http_vhost:uuid
+      parent: $oidc_ui.imports.$oidc_lb_http_vhost:uuid
       condition:
         kind: prefix
-        value: /auth/
+        value: /
         allowed_ips:
           - 0.0.0.0/0
         actions:

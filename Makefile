@@ -10,7 +10,7 @@ help:
 
 web:
 	npm ci
-	npm run build -- --base=/auth/
+	npm run build
 	tar --zstd -cf web.tar.zst -C dist .
 
 build: web

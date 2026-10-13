@@ -53,12 +53,14 @@ npm run preview
 
 ## Exordos element
 
-The `oidc_ui` element serves the UI at `/auth/` on Core's existing HTTP
-load balancer. It requires the `core` element and uses its `/api/core/`
-routes. No separate VM image is needed.
+The `oidc_ui` element serves the UI at `/` on Core's dedicated OIDC HTTP
+vhost (`oidc_lb_http`). It requires a Core build with the OIDC LB/vhost
+from exordos/exordos_core#651. Core provides DNS and `/api/core/` routes
+on that same hostname; this element provides the versioned UI archive and
+the root SPA route. No separate VM image is needed.
 
 Install the Exordos CLI and `zstd`, then run `make build`. This installs npm
-dependencies, builds the UI with `/auth/` as its asset base, archives the
+dependencies, builds the UI with `/` as its asset base, archives the
 contents of `dist/` as `web.tar.zst`, and packages the archive with the rendered
 manifest under `output/exordos-elements/oidc_ui/`.
 
@@ -73,8 +75,12 @@ exordos push -c /path/to/exordos.push.yaml -t local -f --latest
 exordos em elements install output/exordos-elements/oidc_ui/<version>/manifests/oidc_ui.yaml
 ```
 
-Use `/auth/?idp_uuid=<idp-uuid>` as the login URL, preserving any authorization
-request query parameters supplied by the IdP. The trailing slash is required.
+Use `/?idp_uuid=<idp-uuid>` on the OIDC hostname as the login URL, preserving
+any authorization request query parameters supplied by the IdP. Configure
+OIDC clients to use discovery and authorization endpoints on this hostname
+so Core's redirect to `/` returns to the UI. Core's OIDC vhost must not also
+contain the legacy `oidc_lb_ui_route` downloading `dist.tar.gz`: this element
+owns the root route.
 
 CI builds the web archive and passes it to `exordos/exordos_ci`'s reusable
 `element_build.yml` workflow. Configure the repository secret `PUSH_CFG` with

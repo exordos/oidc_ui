@@ -1,9 +1,11 @@
 # Copyright 2026 Genesis Corporation.
 # Licensed under the Apache License, Version 2.0.
 #
-# Replace app.example.com and core.example.com before installation.
-# This example reserves / on Core's HTTP vhost for the IdP login redirect.
-# The LB appends $request_uri to the redirect URL, preserving OIDC parameters.
+# Replace app.example.com before installation.
+# Install Core with its dedicated OIDC LB/vhost and the oidc_ui element first.
+# Use the OIDC hostname for discovery and authorization, so Core redirects
+# back to the UI on the same origin. The IdP discovery URL is:
+# https://<oidc-host>/api/core/v1/iam/idp/62c9b423-093d-4cef-aeb7-a9be8f4ba85e/.well-known/openid-configuration
 
 name: "oidc_idp_example"
 description: "Example application IAM client and IdP using OIDC UI"
@@ -16,12 +18,6 @@ requirements:
     from_version: "0.0.0"
   oidc_ui:
     from_version: "0.0.0"
-
-imports:
-  core_lb_http_vhost:
-    element: "$core"
-    kind: "resource"
-    link: "$core.network.lb.$core_lb.vhosts.$core_lb_core_http"
 
 resources:
   $core.secret.passwords:
@@ -66,17 +62,3 @@ resources:
         kind: callback_uri_list
         callbacks:
           - "https://app.example.com/oidc/callback"
-
-  $oidc_idp_example.imports.$core_lb_http_vhost.routes:
-    example_oidc_login_redirect:
-      project_id: "12345678-c625-4fee-81d5-f691897b8142"
-      parent: $oidc_idp_example.imports.$core_lb_http_vhost:uuid
-      condition:
-        kind: exact
-        value: /
-        allowed_ips:
-          - 0.0.0.0/0
-        actions:
-          - kind: redirect
-            code: 302
-            url: "https://core.example.com/auth"
