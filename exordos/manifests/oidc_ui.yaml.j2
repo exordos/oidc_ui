@@ -15,7 +15,7 @@ imports:
   oidc_lb_http_vhost:
     element: "$core"
     kind: "resource"
-    link: "$core.network.lb.$oidc_lb.vhosts.$oidc_lb_http"
+    link: "$core.network.lb.$core_lb.vhosts.$oidc_lb_http"
 
 resources:
   $oidc_ui.imports.$oidc_lb_http_vhost.routes:

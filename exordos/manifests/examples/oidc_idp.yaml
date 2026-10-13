@@ -2,7 +2,7 @@
 # Licensed under the Apache License, Version 2.0.
 #
 # Replace app.example.com before installation.
-# Install Core with its dedicated OIDC LB/vhost and the oidc_ui element first.
+# Install Core with its OIDC vhost on the Core LB and the oidc_ui element first.
 # Use the OIDC hostname for discovery and authorization, so Core redirects
 # back to the UI on the same origin. The IdP discovery URL is:
 # https://<oidc-host>/api/core/v1/iam/idp/62c9b423-093d-4cef-aeb7-a9be8f4ba85e/.well-known/openid-configuration

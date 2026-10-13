@@ -54,7 +54,7 @@ npm run preview
 ## Exordos element
 
 The `oidc_ui` element serves the UI at `/` on Core's dedicated OIDC HTTP
-vhost (`oidc_lb_http`). It requires a Core build with the OIDC LB/vhost
+vhost (`oidc_lb_http`). It requires a Core build with the OIDC vhost on its existing LB
 from exordos/exordos_core#651. Core provides DNS and `/api/core/` routes
 on that same hostname; this element provides the versioned UI archive and
 the root SPA route. No separate VM image is needed.
