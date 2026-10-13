@@ -69,9 +69,9 @@ The IdP configuration object includes at least:
 - `scope: string`
 - `callback_uri: string`
 
-The `iam_client` field contains the IAM client UUID that the UI uses when calling token-related backend endpoints and when building namespaced storage keys for tokens and the current user. The login form is only available when a valid `iam_client` value is present in the IdP configuration.
+The `iam_client` field identifies the application requesting authorization. The UI uses it to display the application client information. Browser login, token refresh, and profile requests use Core's `default` client instead. The login form is only available when a valid `iam_client` value is present in the IdP configuration.
 
-The IAM client UUID is made available to the component tree via React Context. Services that require the IAM client UUID (such as token requests and token persistence) receive it explicitly when they are created, instead of reading it from a module-level singleton.
+The IAM client UUID is made available to the component tree via React Context. The application client identifier is separate from the default-client browser login session.
 
 When `idp_uuid` is missing or empty, or when the IdP configuration cannot be loaded or does not contain a valid `iam_client` value, the application treats this as a configuration error and renders the authentication error panel instead of the login form.
 
@@ -80,7 +80,7 @@ When `idp_uuid` is missing or empty, or when the IdP configuration cannot be loa
 When an `idp_uuid` query parameter is present in the browser URL and a corresponding IdP configuration is successfully loaded, the right-hand authentication panel is fully driven by the IdP data.
 
 - Until the IdP configuration request is completed, the authentication panel does **not** render either the login form or the user information panel.
-- If the request succeeds and there are no tokens for the current IAM client:
+- If the request succeeds and there are no default-client login tokens:
   - The panel header uses the IdP `name` field as the service name.
     - The title becomes: `Welcome to <name>`.
     - Example: for `name = "ServiceName"` the title is rendered as `Welcome to ServiceName`.
@@ -88,7 +88,7 @@ When an `idp_uuid` query parameter is present in the browser URL and a correspon
     - Example:
       `Sign in to access ServiceName application via the OIDC (OpenID Connect) authentication protocol.`
   - Below the header, the `LoginPanel` component renders the `LoginForm` that lets the user enter credentials.
-- If the request succeeds and valid tokens are already available for the current IAM client (for example, after restoring them from `localStorage`), the authentication panel can immediately render the `UserInfoPanel` instead of the login form, as described in the sections below.
+- If the request succeeds and valid default-client login tokens are already available (for example, after restoring them from `localStorage`), the authentication panel can immediately render the `UserInfoPanel` instead of the login form, as described in the sections below.
 
 If `idp_uuid` is missing or empty, or the IdP configuration cannot be loaded or validated, the application does **not** render the login form or the user information panel. Instead, it shows the `AuthErrorPanel` component explaining that the identity provider configuration is not available and that the login page cannot be used.
 
@@ -132,7 +132,7 @@ In the current version of the application, the main screen focuses on the login 
 
 1. The user opens the single-page `exordos_oidc_ui` application.
 2. The root application component renders the authentication layout (`AuthLayout`) with the left-hand `AuthHero` block and the right-hand authentication panel.
-3. If an IdP configuration is successfully loaded and there are no tokens for the current IAM client, the authentication panel renders the `LoginPanel` with the `LoginForm`.
+3. If an IdP configuration is successfully loaded and there are no default-client login tokens, the authentication panel renders the `LoginPanel` with the `LoginForm`.
 4. The user enters a username and password and chooses whether to enable the `Remember me on this computer` checkbox (it is unchecked by default).
 5. When the form is submitted:
    - a basic check is performed to ensure that login and password are not empty;
@@ -330,27 +330,22 @@ The user can typically close the window or return to the integrating application
 
 ### Token endpoints
 
-The `authClient` module builds token endpoint URLs based on the current browser window base URL (`window.location`). Using this base and the IAM client UUID from the loaded IdP configuration (`IdpConfig.iam_client`), it defines:
+The `authClient` module uses the current browser origin and Core's default
+client for the user's login session:
 
-- the endpoint for obtaining a token with login and password (`grant_type=login+password`);
-- the endpoint for refreshing a token using a refresh token (`grant_type=refresh_token`).
+- `POST /api/core/v1/iam/clients/default/actions/get_token/invoke` for
+  `grant_type=login+password` and `grant_type=refresh_token`;
+- `GET /api/core/v1/iam/clients/default/actions/me` for the user's profile.
 
-Each request includes:
+The login body contains `login`, `password`, and `scope`; the refresh body
+contains `refresh_token`. Profile and authorization-confirmation requests
+use the access token as `Authorization: Bearer <token>`.
 
-- `X-Client-Id` and `X-Client-Secret` headers — client identifier and secret (this is the correct and supported client authentication mechanism in this UI);
-- `grant_type` — the token grant type (`login+password` or `refresh_token`);
-- additional parameters such as `scope`.
-
-When obtaining tokens with `grant_type=login+password`, the request body contains:
-
-- `login` — a single login identifier string; when it contains `@` it is treated as an email, otherwise as a username.
-
-The header values are configured at build time via environment variables and injected into the frontend bundle by Vite:
-
-- `EXORDOS_CLIENT_ID`
-- `EXORDOS_CLIENT_SECRET`
-
-When running locally, provide them to the Vite dev server environment (for example, by exporting them in your shell before `npm run dev`).
+The OIDC load balancer must inject the default client's `X-Client-Id` and
+`X-Client-Secret` headers and rewrite the default alias to its UUID. The
+browser does not send client credentials or embed them in the frontend bundle.
+The client associated with the IdP remains the application requesting consent;
+it is not used for browser password login.
 
 ### Response handling
 
@@ -381,20 +376,13 @@ Tokens are represented by the `AuthTokens` type:
 
 ### In-memory and localStorage storage
 
-- After each successful login or token refresh, `tokenStorage`:
-  - updates token values in memory;
-  - when `setPersistentTokens` is used, additionally serializes them to `localStorage` under a key that is namespaced by the current IAM client UUID.
-- For each IAM client UUID `<client_uuid>` the following keys are used:
-  - `exordos_oidc_ui.<client_uuid>.authTokens` — a JSON object with `token` and `refreshToken` fields;
-  - `exordos_oidc_ui.<client_uuid>.currentUser` — the last successfully authenticated username for that client.
-
-This allows the application to:
-
-- quickly access tokens from memory within the current session;
-- restore tokens when the page is reloaded, if they were saved with `rememberMe = true`;
-- keep tokens for different IAM clients strictly isolated so that tokens issued for one client are never reused for another client.
-
-In the current implementation, `tokenStorage` is created for a specific IAM client UUID, which makes the storage namespace an explicit dependency and avoids relying on module-level shared state.
+- Tokens are held in memory during the current page session.
+- With **Remember me**, they are also stored as
+  `exordos_oidc_ui.default.authTokens`; the username uses
+  `exordos_oidc_ui.default.currentUser`.
+- The default-client storage namespace can be restored across authorization
+  requests for different application clients on the same origin.
+- Older per-application token namespaces are not loaded by this login flow.
 
 ### Current user
 

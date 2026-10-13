@@ -54,7 +54,8 @@ export function useAuth(idpConfig: IdpConfig | null): UseAuthResult {
 
   const tokenStorage = useMemo((): TokenStorage => {
     if (iamClient) {
-      return createTokenStorage(iamClient);
+      // Browser login tokens belong to Core's default client, not the relying party.
+      return createTokenStorage('default');
     }
 
     return {
@@ -73,7 +74,7 @@ export function useAuth(idpConfig: IdpConfig | null): UseAuthResult {
 
   const authClient = useMemo((): AuthClient => {
     if (iamClient) {
-      return createAuthClient({ iamClientUuid: iamClient, tokenStorage });
+      return createAuthClient({ tokenStorage });
     }
 
     return {
