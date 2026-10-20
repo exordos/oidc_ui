@@ -53,11 +53,15 @@ npm run preview
 
 ## Exordos element
 
-The `oidc_ui` element serves the UI at `/` on Core's dedicated OIDC HTTP
-vhost (`oidc_lb_http`). It requires a Core build with the OIDC vhost on its existing LB
-from exordos/exordos_core#651. Core provides DNS and `/api/core/` routes
-on that same hostname; this element provides the versioned UI archive and
-the root SPA route. No separate VM image is needed.
+The `oidc_ui` element owns its hostname, local DNS record, HTTP vhost,
+UI archive and API forwarding route on Core's existing `core_lb`.
+Core PR #651 is not required: the element imports only Core's existing
+LB, local DNS zone and Core IP variable exports.
+
+API requests make a loopback hop through Core's original HTTP vhost,
+reusing its Core/IAM-cache routing and default-client credential injection.
+The route sets `X-Forwarded-Host` to retain the public OIDC hostname. No client secret is
+copied into this manifest.
 
 Install the Exordos CLI and `zstd`, then run `make build`. This installs npm
 dependencies, builds the UI with `/` as its asset base, archives the
@@ -75,12 +79,33 @@ exordos push -c /path/to/exordos.push.yaml -t local -f --latest
 exordos em elements install output/exordos-elements/oidc_ui/<version>/manifests/oidc_ui.yaml
 ```
 
+For an HTTPS deployment, render with the public hostname:
+
+```bash
+exordos build -f --manifest-var oidc_ui_domain=oidc.exordos.tech
+```
+
+The default hostname is `oidc.local.genesis-core.tech`. Public DNS and TLS
+termination are managed separately. The external proxy must preserve the
+configured OIDC Host and forward both `/` and `/api/core/` to Core's LB.
+Core's existing HTTP routes generate their own forwarded scheme and port.
+When terminating TLS externally, verify discovery URLs and token issuers:
+this move preserves that existing behavior and does not fix HTTPS forwarding
+inside Core's LB.
+The local DNS record always points `oidc` in Core's local zone to Core's IP;
+it does not create a record in the public zone.
+
+Before upgrading a deployment that used PR #651, remove its Core-owned
+OIDC vhost, routes, domain variable/value and local DNS record from the Core
+manifest. These resources now belong to `oidc_ui`; installing both versions
+of the wiring creates conflicting vhosts/DNS records. Back up any domain
+override and pass it when building this element. Do not remove Core's LB.
+
 Use `/?idp_uuid=<idp-uuid>` on the OIDC hostname as the login URL, preserving
 any authorization request query parameters supplied by the IdP. Configure
 OIDC clients to use discovery and authorization endpoints on this hostname
-so Core's redirect to `/` returns to the UI. Core's OIDC vhost must not also
-contain the legacy `oidc_lb_ui_route` downloading `dist.tar.gz`: this element
-owns the root route.
+so Core's redirect to `/` returns to the UI. The element owns the root
+route; do not configure another root SPA route on this vhost.
 
 CI builds the web archive and passes it to `exordos/exordos_ci`'s reusable
 `element_build.yml` workflow. Configure the repository secret `PUSH_CFG` with

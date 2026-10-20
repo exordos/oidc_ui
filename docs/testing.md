@@ -38,11 +38,10 @@ CI runs this regression test before building the web archive.
 
 ## Prepare the local stand
 
-Install Core with the OIDC vhost from
-[Core PR #651](https://github.com/exordos/exordos_core/pull/651), then publish
-and install the `oidc_ui` element built from this repository. Use the revisions
-that put the OIDC vhost on the existing `core_lb` and use the default client
-for browser login.
+Publish and install the `oidc_ui` element built from this repository on
+Core with its standard LB, local DNS zone and Core IP variable exports.
+Core PR #651 is not required. See the README for migration from its
+Core-owned resources and public hostname/HTTPS build options.
 
 ```bash
 exordos e e show core
@@ -51,7 +50,9 @@ exordos e e show oidc_ui
 
 Both elements should reach `ACTIVE`. Core should have one LB, `core_lb`,
 with the original vhost and the hostname-specific OIDC vhost `oidc_lb_http`.
-The `oidc_ui` element adds the root SPA route to the latter.
+The `oidc_ui` element owns the OIDC vhost, local DNS record, root SPA route
+and API forwarding route. API requests use the original Core HTTP vhost
+through a loopback backend to reuse its IAM routing and credentials.
 
 Set the stand's hostname and reachable Core IP on your workstation:
 

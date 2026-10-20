@@ -11,17 +11,100 @@ requirements:
   core:
     from_version: "0.0.0"
 
+# Reuse Core's public exports; no OIDC-specific Core resources are required.
 imports:
-  oidc_lb_http_vhost:
+  core_lb:
     element: "$core"
     kind: "resource"
-    link: "$core.network.lb.$core_lb.vhosts.$oidc_lb_http"
+    link: "$core.network.lb.$core_lb"
+  local_domain:
+    element: "$core"
+    kind: "resource"
+    link: "$core.dns.domains.$local_domain"
+  var_core_ip_address:
+    element: "$core"
+    kind: "resource"
+    link: "$core.vs.variables.$core_ip_address"
 
 resources:
-  $oidc_ui.imports.$oidc_lb_http_vhost.routes:
+  $core.vs.variables:
+    oidc_ui_domain:
+      name: "oidc_ui_domain"
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      setter:
+        kind: selector
+        selector_strategy: latest
+
+  $core.vs.values:
+    oidc_ui_domain:
+      name: "OIDC UI domain"
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      value: "{{ oidc_ui_domain | default('oidc.local.genesis-core.tech') }}"
+      variable: $core.vs.variables.$oidc_ui_domain:uuid
+
+  # This record serves the default local hostname. Public DNS and TLS
+  # termination are deployment configuration, independent of this record.
+  $oidc_ui.imports.$local_domain.records:
+    local_oidc_record:
+      domain: $oidc_ui.imports.$local_domain:uuid
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      type: "A"
+      record:
+        kind: "A"
+        name: "oidc"
+        address: $oidc_ui.imports.$var_core_ip_address:value
+
+  $oidc_ui.imports.$core_lb.backend_pools:
+    oidc_core_http:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $oidc_ui.imports.$core_lb:uuid
+      endpoints:
+        - kind: host
+          host: 127.0.0.1
+          port: 80
+          weight: 1
+
+  $oidc_ui.imports.$core_lb.vhosts:
+    oidc_lb_http:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $oidc_ui.imports.$core_lb:uuid
+      domains:
+        - $core.vs.variables.$oidc_ui_domain:value
+      protocol: http
+      port: 80
+
+  $oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http.routes:
+    # Core's original HTTP vhost owns API routing, IAM cache selection,
+    # default-client URL rewriting and server-side credential injection.
+    # Select it explicitly so the loopback hop cannot re-enter this vhost.
+    oidc_lb_core_route:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http:uuid
+      condition:
+        kind: prefix
+        value: /api/core/
+        allowed_ips:
+          - 0.0.0.0/0
+        actions:
+          - kind: backend
+            pool: $oidc_ui.imports.$core_lb.backend_pools.$oidc_core_http:uuid
+            protocol:
+              kind: http
+        modifiers:
+          - kind: auto_header
+            headers:
+              - 'X-Forwarded-For'
+          - kind: set_header
+            name: Host
+            value: f"core.{$oidc_ui.imports.$local_domain:name}"
+          # Core's IAM context uses this to construct public endpoint URLs.
+          - kind: set_header
+            name: X-Forwarded-Host
+            value: $core.vs.variables.$oidc_ui_domain:value
+
     oidc_ui_route:
       project_id: "12345678-c625-4fee-81d5-f691897b8142"
-      parent: $oidc_ui.imports.$oidc_lb_http_vhost:uuid
+      parent: $oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http:uuid
       condition:
         kind: prefix
         value: /
@@ -31,3 +114,9 @@ resources:
           - kind: local_dir_download
             url: "{{ repository | default('https://repo.exordos.com/exordos-elements') }}/oidc_ui/{{ version }}/artifacts/web.tar.zst"
             is_spa: true
+
+exports:
+  var_oidc_ui_domain:
+    link: "$core.vs.variables.$oidc_ui_domain"
+  oidc_lb_http_vhost:
+    link: "$oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http"
