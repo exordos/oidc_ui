@@ -73,13 +73,14 @@ resources:
       protocol: http
       port: 80
 
-  $oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http.routes:
+  # Children created through imports are registered at their canonical paths.
+  $core.network.lb.$core_lb.vhosts.$oidc_lb_http.routes:
     # Core's original HTTP vhost owns API routing, IAM cache selection,
     # default-client URL rewriting and server-side credential injection.
     # Select it explicitly so the loopback hop cannot re-enter this vhost.
     oidc_lb_core_route:
       project_id: "12345678-c625-4fee-81d5-f691897b8142"
-      parent: $oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http:uuid
+      parent: $core.network.lb.$core_lb.vhosts.$oidc_lb_http:uuid
       condition:
         kind: prefix
         value: /api/core/
@@ -87,7 +88,7 @@ resources:
           - 0.0.0.0/0
         actions:
           - kind: backend
-            pool: $oidc_ui.imports.$core_lb.backend_pools.$oidc_core_http:uuid
+            pool: $core.network.lb.$core_lb.backend_pools.$oidc_core_http:uuid
             protocol:
               kind: http
         modifiers:
@@ -104,7 +105,7 @@ resources:
 
     oidc_ui_route:
       project_id: "12345678-c625-4fee-81d5-f691897b8142"
-      parent: $oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http:uuid
+      parent: $core.network.lb.$core_lb.vhosts.$oidc_lb_http:uuid
       condition:
         kind: prefix
         value: /
@@ -119,4 +120,4 @@ exports:
   var_oidc_ui_domain:
     link: "$core.vs.variables.$oidc_ui_domain"
   oidc_lb_http_vhost:
-    link: "$oidc_ui.imports.$core_lb.vhosts.$oidc_lb_http"
+    link: "$core.network.lb.$core_lb.vhosts.$oidc_lb_http"
