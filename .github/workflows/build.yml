@@ -1,4 +1,4 @@
-name: build & deploy
+name: build
 
 on:
   push:
@@ -7,50 +7,37 @@ on:
     tags:
       - '*'
   workflow_dispatch:
-    inputs:
-      build_target:
-        description: 'Build target'
-        required: true
-        default: 'ci_stage'
-        type: choice
-        options:
-        - ci_stage
-
-env:
-  ARTIFACTS_PATH: artifacts
-  PROJECT_NAME: exordos-oidc-ui
-  REPO_ENDPOINT: http://10.20.0.1:8081
-  REPO_ENDPOINT_PUT: http://10.20.0.1:8082
-
 
 jobs:
-  build:
-    runs-on: [self-hosted]
-    strategy:
-      fail-fast: true
+  Web:
+    runs-on: [self-hosted, vm]
+    if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          fetch-depth: 30
-      - name: Build Exordos OIDC UI
-        env:
-            UI_BUILD_ENV_BUILD_TARGET: ${{ github.event.inputs.build_target }}
-        run: |
-          set -eux
-
-          # Install DevTools
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install genesis-devtools
-
-          VERSION="$(genesis get-version .)"
-
-          npm install
-          npm run build
-
-          # Prepare the artifact
-          tar -czf dist.tar.gz dist
-
-          # Upload the artifact
-          curl -X PUT --upload-file dist.tar.gz \
-            $REPO_ENDPOINT_PUT/${PROJECT_NAME}/${VERSION}/dist.tar.gz
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Test browser authentication client
+        run: npm test
+      - name: Build project
+        run: npm run build
+      - name: Archive Web Artifact
+        run: tar --zstd -cf web.tar.zst -C dist .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: web.tar.zst
+          retention-days: 1
+  Build:
+    needs: Web
+    uses: exordos/exordos_ci/.github/workflows/element_build.yml@master
+    with:
+      artifact-name: web
+      artifact-path: .
+    secrets:
+      PUSH_CFG: ${{ secrets.PUSH_CFG }}

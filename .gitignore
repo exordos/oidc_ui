@@ -19,6 +19,9 @@ node_modules/
 # Build output
 dist/
 build/
+output/
+web.tar.zst
+exordos/exordos.push.yaml
 
 # Logs
 logs

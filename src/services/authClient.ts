@@ -26,30 +26,24 @@ const OAUTH = {
   FORM_SCOPE: 'scope',
   GRANT_TYPE_LOGIN_PASSWORD: 'login+password',
   GRANT_TYPE_REFRESH_TOKEN: 'refresh_token',
-  HEADER_CLIENT_ID: 'X-Client-Id',
-  HEADER_CLIENT_SECRET: 'X-Client-Secret',
   HEADER_CONTENT_TYPE: 'Content-Type',
   CONTENT_TYPE_FORM_URLENCODED: 'application/x-www-form-urlencoded',
 } as const;
 
-function getTokenEndpoint(iamClientUuid: string): string {
+function getTokenEndpoint(): string {
   if (!EXORDOS_BASE_URL) {
     throw new Error('Base URL is not available for token endpoint');
   }
 
-  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/${encodeURIComponent(
-    iamClientUuid,
-  )}/actions/get_token/invoke`;
+  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/default/actions/get_token/invoke`;
 }
 
-function getMeEndpoint(iamClientUuid: string): string | null {
+function getMeEndpoint(): string | null {
   if (!EXORDOS_BASE_URL) {
     return null;
   }
 
-  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/${encodeURIComponent(
-    iamClientUuid,
-  )}/actions/me`;
+  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/default/actions/me`;
 }
 
 export type PasswordLoginParams = {
@@ -79,14 +73,8 @@ export type RawTokenResponse = {
   [key: string]: unknown;
 };
 
-export function createAuthClient({
-  iamClientUuid,
-  tokenStorage,
-}: {
-  iamClientUuid: string;
-  tokenStorage: TokenStorage;
-}): AuthClient {
-  return new AuthClientImpl({ iamClientUuid, tokenStorage });
+export function createAuthClient({ tokenStorage }: { tokenStorage: TokenStorage }): AuthClient {
+  return new AuthClientImpl(tokenStorage);
 }
 
 export type LoginResult = {
@@ -141,19 +129,11 @@ function computeRefreshDelaySeconds(meta: TokenMeta): number | null {
 }
 
 class AuthClientImpl implements AuthClient {
-  private readonly iamClientUuid: string;
-
   private readonly tokenStorage: TokenStorage;
 
   private refreshTimer: number | null = null;
 
-  constructor({ iamClientUuid, tokenStorage }: { iamClientUuid: string; tokenStorage: TokenStorage }) {
-    const trimmed = iamClientUuid.trim();
-    if (!trimmed) {
-      throw new Error('IAM client UUID is not configured');
-    }
-
-    this.iamClientUuid = trimmed;
+  constructor(tokenStorage: TokenStorage) {
     this.tokenStorage = tokenStorage;
   }
 
@@ -198,7 +178,7 @@ class AuthClientImpl implements AuthClient {
   }
 
   private async requestTokens(body: URLSearchParams, rememberMe: boolean): Promise<LoginResult> {
-    const endpoint = getTokenEndpoint(this.iamClientUuid);
+    const endpoint = getTokenEndpoint();
 
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -278,7 +258,7 @@ class AuthClientImpl implements AuthClient {
 
   async fetchCurrentUserProfile(): Promise<CurrentUserProfile | null> {
     const token = this.tokenStorage.getToken();
-    const meEndpoint = getMeEndpoint(this.iamClientUuid);
+    const meEndpoint = getMeEndpoint();
 
     if (!token || !meEndpoint) {
       return null;
