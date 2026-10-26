@@ -22,7 +22,7 @@ test('login, refresh and profile use the server-authenticated default client', a
     setTimeout: () => 1,
     clearTimeout: () => {},
   };
-  const { createAuthClient } = await import(
+  const { createAuthClient, TokenRequestError } = await import(
     `data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString('base64')}`
   );
   let tokens = { token: null, refreshToken: null };
@@ -56,10 +56,21 @@ test('login, refresh and profile use the server-authenticated default client', a
     assert.equal(requests[1].options.body.get('refresh_token'), 'test-refresh');
     assert.equal(requests[2].options.headers.Authorization, 'Bearer test-access');
     for (const { options } of requests.slice(0, 2)) {
+      assert.equal(options.headers['X-OTP'], undefined);
       assert.equal(options.headers['X-Client-Secret'], undefined);
       assert.equal(options.body.has('client_secret'), false);
     }
+    await client.loginWithPassword({
+      login: 'admin', password: 'test-password', otp: ' 123456 ', rememberMe: false,
+    });
+    assert.equal(requests[3].url, requests[0].url);
+    assert.equal(requests[3].options.headers['X-OTP'], '123456');
+    assert.equal(requests[3].options.body.get('password'), 'test-password');
     globalThis.fetch = async () => Response.json({ error: 'invalid_grant' }, { status: 401 });
+    await assert.rejects(
+      client.loginWithPassword({ login: 'admin', password: 'test-password' }),
+      (error) => error instanceof TokenRequestError && error.status === 401,
+    );
     await assert.rejects(client.refreshAccessToken(), /401/);
     assert.equal(tokens.token, null);
     assert.equal(tokens.refreshToken, null);

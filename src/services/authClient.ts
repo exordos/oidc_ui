@@ -26,6 +26,7 @@ const OAUTH = {
   FORM_SCOPE: 'scope',
   GRANT_TYPE_LOGIN_PASSWORD: 'login+password',
   GRANT_TYPE_REFRESH_TOKEN: 'refresh_token',
+  HEADER_OTP: 'X-OTP',
   HEADER_CONTENT_TYPE: 'Content-Type',
   CONTENT_TYPE_FORM_URLENCODED: 'application/x-www-form-urlencoded',
 } as const;
@@ -50,12 +51,31 @@ export type PasswordLoginParams = {
   login: string;
   password: string;
   /**
+   * One-time password code sent in the X-OTP header when OTP is enabled for the user.
+   */
+  otp?: string;
+  /**
    * If true, tokens will be stored in localStorage in addition to memory.
    * If false, tokens will only live in memory.
    */
   rememberMe?: boolean;
   scope?: string;
 };
+
+export class TokenRequestError extends Error {
+  readonly status: number;
+
+  readonly responseBody: string;
+
+  constructor(status: number, statusText: string, responseBody: string) {
+    super(
+      `Token endpoint responded with ${status} ${statusText}: ${responseBody || 'no body'}`,
+    );
+    this.name = 'TokenRequestError';
+    this.status = status;
+    this.responseBody = responseBody;
+  }
+}
 
 export type RefreshOptions = {
   rememberMe?: boolean;
@@ -144,6 +164,7 @@ class AuthClientImpl implements AuthClient {
   async loginWithPassword({
     login,
     password,
+    otp,
     rememberMe = true,
     scope = '',
   }: PasswordLoginParams): Promise<LoginResult> {
@@ -152,7 +173,7 @@ class AuthClientImpl implements AuthClient {
     body.set(OAUTH.FORM_LOGIN, login);
     body.set(OAUTH.FORM_PASSWORD, password);
     body.set(OAUTH.FORM_SCOPE, scope);
-    const result = await this.requestTokens(body, rememberMe);
+    const result = await this.requestTokens(body, rememberMe, otp);
     this.scheduleAutoRefresh(result.meta, rememberMe);
     return result;
   }
@@ -177,22 +198,31 @@ class AuthClientImpl implements AuthClient {
     }
   }
 
-  private async requestTokens(body: URLSearchParams, rememberMe: boolean): Promise<LoginResult> {
+  private async requestTokens(
+    body: URLSearchParams,
+    rememberMe: boolean,
+    otp?: string,
+  ): Promise<LoginResult> {
     const endpoint = getTokenEndpoint();
+
+    const headers: Record<string, string> = {
+      [OAUTH.HEADER_CONTENT_TYPE]: OAUTH.CONTENT_TYPE_FORM_URLENCODED,
+    };
+
+    const trimmedOtp = otp?.trim();
+    if (trimmedOtp) {
+      headers[OAUTH.HEADER_OTP] = trimmedOtp;
+    }
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        [OAUTH.HEADER_CONTENT_TYPE]: OAUTH.CONTENT_TYPE_FORM_URLENCODED,
-      },
+      headers,
       body,
     });
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(
-        `Token endpoint responded with ${response.status} ${response.statusText}: ${text || 'no body'}`,
-      );
+      throw new TokenRequestError(response.status, response.statusText, text);
     }
 
     let data: RawTokenResponse | null = null;
