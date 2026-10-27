@@ -26,6 +26,27 @@ jobs:
         run: npm test
   Build:
     needs: Test
-    uses: exordos/exordos_ci/.github/workflows/element_build.yml@master
-    secrets:
-      PUSH_CFG: ${{ secrets.PUSH_CFG }}
+    runs-on: [self-hosted, vm]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Build Element
+        timeout-minutes: 60
+        run: exordos build "$(pwd)"
+      - name: Publish Element
+        timeout-minutes: 60
+        env:
+          PUSH_CFG: ${{ secrets.PUSH_CFG }}
+        run: |
+          set -euo pipefail
+          umask 077
+          trap 'rm -f exordos/exordos.push.yaml' EXIT
+          printf '%s' "$PUSH_CFG" | base64 --decode > exordos/exordos.push.yaml
+          exordos push -c exordos/exordos.push.yaml -t local -f --latest

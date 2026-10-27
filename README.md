@@ -108,9 +108,10 @@ OIDC clients to use discovery and authorization endpoints on this hostname
 so Core's redirect to `/` returns to the UI. The element owns the root
 route; do not configure another root SPA route on this vhost.
 
-CI tests the authentication client, then calls `exordos/exordos_ci`'s reusable
-`element_build.yml` workflow. The build runner needs Node.js >= 24, npm and
-`zstd`; `exordos build` creates the web archive through the script artifact. Configure the repository secret `PUSH_CFG` with
+CI tests the authentication client, then builds and publishes the element.
+Both jobs set up Node.js 24 and npm. The build runner also needs `zstd`;
+`exordos build` creates the web archive through the script artifact.
+Configure the repository secret `PUSH_CFG` with
 a base64-encoded `exordos.push.yaml` for the workflow's `local` push target.
 The default public artifact root is `https://repo.exordos.com/exordos-elements`.
 Branches other than `master`, tags, and manual runs trigger builds;
