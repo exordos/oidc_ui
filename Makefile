@@ -9,9 +9,7 @@ help:
 	@echo "build - build the Exordos element"
 
 web:
-	npm ci
-	npm run build
-	tar --zstd -cf web.tar.zst -C dist .
+	./exordos/images/build_web.sh
 
-build: web
+build:
 	exordos build -f

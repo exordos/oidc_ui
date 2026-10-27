@@ -63,8 +63,10 @@ reusing its Core/IAM-cache routing and default-client credential injection.
 The route sets `X-Forwarded-Host` to retain the public OIDC hostname. No client secret is
 copied into this manifest.
 
-Install the Exordos CLI and `zstd`, then run `make build`. This installs npm
-dependencies, builds the UI with `/` as its asset base, archives the
+Install the Exordos CLI, Node.js >= 24, npm and `zstd`, then run `make build`
+or `exordos build -f`. The element builder runs `exordos/images/build_web.sh`
+as a script artifact: it installs npm dependencies, builds the UI with `/`
+as its asset base, archives the
 contents of `dist/` as `web.tar.zst`, and packages the archive with the rendered
 manifest under `output/exordos-elements/oidc_ui/`.
 
@@ -73,7 +75,6 @@ its archive from the repository. For a custom repository, render the manifest
 with its public element root URL:
 
 ```bash
-make web
 exordos build -f --manifest-var repository=https://repo.example.com/exordos-elements
 exordos push -c /path/to/exordos.push.yaml -t local -f --latest
 exordos em elements install output/exordos-elements/oidc_ui/<version>/manifests/oidc_ui.yaml
@@ -107,8 +108,9 @@ OIDC clients to use discovery and authorization endpoints on this hostname
 so Core's redirect to `/` returns to the UI. The element owns the root
 route; do not configure another root SPA route on this vhost.
 
-CI builds the web archive and passes it to `exordos/exordos_ci`'s reusable
-`element_build.yml` workflow. Configure the repository secret `PUSH_CFG` with
+CI tests the authentication client, then calls `exordos/exordos_ci`'s reusable
+`element_build.yml` workflow. The build runner needs Node.js >= 24, npm and
+`zstd`; `exordos build` creates the web archive through the script artifact. Configure the repository secret `PUSH_CFG` with
 a base64-encoded `exordos.push.yaml` for the workflow's `local` push target.
 The default public artifact root is `https://repo.exordos.com/exordos-elements`.
 Branches other than `master`, tags, and manual runs trigger builds;

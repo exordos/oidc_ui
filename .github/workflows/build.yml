@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  Web:
+  Test:
     runs-on: [self-hosted, vm]
     if: ${{ github.actor != 'dependabot[bot]' }}
     steps:
@@ -24,20 +24,8 @@ jobs:
         run: npm ci
       - name: Test browser authentication client
         run: npm test
-      - name: Build project
-        run: npm run build
-      - name: Archive Web Artifact
-        run: tar --zstd -cf web.tar.zst -C dist .
-      - uses: actions/upload-artifact@v7
-        with:
-          name: web
-          path: web.tar.zst
-          retention-days: 1
   Build:
-    needs: Web
+    needs: Test
     uses: exordos/exordos_ci/.github/workflows/element_build.yml@master
-    with:
-      artifact-name: web
-      artifact-path: .
     secrets:
       PUSH_CFG: ${{ secrets.PUSH_CFG }}

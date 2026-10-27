@@ -5,4 +5,7 @@ build:
   elements:
     - manifest: manifests/oidc_ui.yaml.j2
       artifacts:
-        - path: ../web.tar.zst
+        - script: images/build_web.sh
+          name: web
+          artifacts:
+            - ../web.tar.zst
