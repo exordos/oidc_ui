@@ -51,6 +51,7 @@ resources:
   $core.secret.certificates:
     oidc_ui_certificate:
       name: "OIDC UI certificate"
+      email: "{{ oidc_ui_certificate_email | default('infra@exordos.com') }}"
       project_id: "12345678-c625-4fee-81d5-f691897b8142"
       method:
         kind: manual
