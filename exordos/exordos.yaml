@@ -9,3 +9,9 @@ build:
           name: web
           artifacts:
             - ../web.tar.zst
+    - manifest: manifests/oidc_ui_https.yaml.j2
+      artifacts:
+        - script: images/build_web.sh
+          name: web
+          artifacts:
+            - ../web.tar.zst

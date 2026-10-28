@@ -80,19 +80,42 @@ exordos push -c /path/to/exordos.push.yaml -t local -f --latest
 exordos em elements install output/exordos-elements/oidc_ui/<version>/manifests/oidc_ui.yaml
 ```
 
-For an HTTPS deployment, render with the public hostname:
+### HTTPS with a manual certificate
+
+The standalone `oidc_ui_https` element is an alternative to `oidc_ui`. Install
+exactly one: `oidc_ui` for HTTP, or `oidc_ui_https` for HTTPS. Both depend only
+on Core and own their hostname, local DNS record, UI archive and API routes.
+
+The HTTPS element owns an `oidc_ui_certificate` resource
+with `method.kind: manual`. It also creates selector variable resources
+`oidc_ui_tls_crt` and `oidc_ui_tls_key`. Supply a PEM certificate or full chain
+and matching unencrypted private key through Core Variable Storage values
+bound to these variables. The certificate reads their `:value` attributes.
+The HTTPS vhost on port 443 references the resource's `cert` and `key`
+attributes and serves the UI archive directly.
 
 ```bash
-exordos build -f --manifest-var oidc_ui_domain=oidc.exordos.tech
+exordos build -f -e oidc_ui_https --manifest-var oidc_ui_domain=oidc.example.com
+# Publish the selected element, then install it.
+exordos em elements install output/exordos-elements/oidc_ui_https/<version>/manifests/oidc_ui_https.yaml
 ```
 
-The default hostname is `oidc.local.genesis-core.tech`. Public DNS and TLS
-termination are managed separately. The external proxy must preserve the
-configured OIDC Host and forward both `/` and `/api/core/` to Core's LB.
-Core's existing HTTP routes generate their own forwarded scheme and port.
-When terminating TLS externally, verify discovery URLs and token issuers:
-this move preserves that existing behavior and does not fix HTTPS forwarding
-inside Core's LB.
+Builds do not require PEM inputs and do not embed private keys. After installing
+`oidc_ui_https`, populate both variables with matching PEM values so the manual
+certificate can be provisioned. The variables are exported as
+`var_oidc_ui_tls_crt` and `var_oidc_ui_tls_key`; their selectors use the latest
+value unless a value is manually selected.
+
+Manual certificates are not issued or renewed automatically. Rotate the
+certificate by supplying replacement values to both variables. Point the
+configured hostname at Core's load balancer. The `oidc_ui_https` element
+exports the HTTPS vhost as `oidc_lb_https_vhost`.
+
+Core's existing internal HTTP routes generate their own forwarded scheme and
+port. This also applies to the loopback API hop from the HTTPS listener:
+Core must preserve the original HTTPS scheme and port for discovery URLs and
+token issuers to use HTTPS. Adding a certificate here does not resolve that
+Core limitation; verify discovery and token issuers before using OIDC clients.
 The local DNS record always points `oidc` in Core's local zone to Core's IP;
 it does not create a record in the public zone.
 
