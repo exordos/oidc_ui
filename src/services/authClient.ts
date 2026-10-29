@@ -26,35 +26,34 @@ const OAUTH = {
   FORM_SCOPE: 'scope',
   GRANT_TYPE_LOGIN_PASSWORD: 'login+password',
   GRANT_TYPE_REFRESH_TOKEN: 'refresh_token',
-  HEADER_CLIENT_ID: 'X-Client-Id',
-  HEADER_CLIENT_SECRET: 'X-Client-Secret',
+  HEADER_OTP: 'X-OTP',
   HEADER_CONTENT_TYPE: 'Content-Type',
   CONTENT_TYPE_FORM_URLENCODED: 'application/x-www-form-urlencoded',
 } as const;
 
-function getTokenEndpoint(iamClientUuid: string): string {
+function getTokenEndpoint(): string {
   if (!EXORDOS_BASE_URL) {
     throw new Error('Base URL is not available for token endpoint');
   }
 
-  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/${encodeURIComponent(
-    iamClientUuid,
-  )}/actions/get_token/invoke`;
+  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/default/actions/get_token/invoke`;
 }
 
-function getMeEndpoint(iamClientUuid: string): string | null {
+function getMeEndpoint(): string | null {
   if (!EXORDOS_BASE_URL) {
     return null;
   }
 
-  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/${encodeURIComponent(
-    iamClientUuid,
-  )}/actions/me`;
+  return `${EXORDOS_BASE_URL}${API_CORE_PREFIX}/v1/iam/clients/default/actions/me`;
 }
 
 export type PasswordLoginParams = {
   login: string;
   password: string;
+  /**
+   * One-time password code sent in the X-OTP header when OTP is enabled for the user.
+   */
+  otp?: string;
   /**
    * If true, tokens will be stored in localStorage in addition to memory.
    * If false, tokens will only live in memory.
@@ -62,6 +61,21 @@ export type PasswordLoginParams = {
   rememberMe?: boolean;
   scope?: string;
 };
+
+export class TokenRequestError extends Error {
+  readonly status: number;
+
+  readonly responseBody: string;
+
+  constructor(status: number, statusText: string, responseBody: string) {
+    super(
+      `Token endpoint responded with ${status} ${statusText}: ${responseBody || 'no body'}`,
+    );
+    this.name = 'TokenRequestError';
+    this.status = status;
+    this.responseBody = responseBody;
+  }
+}
 
 export type RefreshOptions = {
   rememberMe?: boolean;
@@ -79,14 +93,8 @@ export type RawTokenResponse = {
   [key: string]: unknown;
 };
 
-export function createAuthClient({
-  iamClientUuid,
-  tokenStorage,
-}: {
-  iamClientUuid: string;
-  tokenStorage: TokenStorage;
-}): AuthClient {
-  return new AuthClientImpl({ iamClientUuid, tokenStorage });
+export function createAuthClient({ tokenStorage }: { tokenStorage: TokenStorage }): AuthClient {
+  return new AuthClientImpl(tokenStorage);
 }
 
 export type LoginResult = {
@@ -141,19 +149,11 @@ function computeRefreshDelaySeconds(meta: TokenMeta): number | null {
 }
 
 class AuthClientImpl implements AuthClient {
-  private readonly iamClientUuid: string;
-
   private readonly tokenStorage: TokenStorage;
 
   private refreshTimer: number | null = null;
 
-  constructor({ iamClientUuid, tokenStorage }: { iamClientUuid: string; tokenStorage: TokenStorage }) {
-    const trimmed = iamClientUuid.trim();
-    if (!trimmed) {
-      throw new Error('IAM client UUID is not configured');
-    }
-
-    this.iamClientUuid = trimmed;
+  constructor(tokenStorage: TokenStorage) {
     this.tokenStorage = tokenStorage;
   }
 
@@ -164,6 +164,7 @@ class AuthClientImpl implements AuthClient {
   async loginWithPassword({
     login,
     password,
+    otp,
     rememberMe = true,
     scope = '',
   }: PasswordLoginParams): Promise<LoginResult> {
@@ -172,7 +173,7 @@ class AuthClientImpl implements AuthClient {
     body.set(OAUTH.FORM_LOGIN, login);
     body.set(OAUTH.FORM_PASSWORD, password);
     body.set(OAUTH.FORM_SCOPE, scope);
-    const result = await this.requestTokens(body, rememberMe);
+    const result = await this.requestTokens(body, rememberMe, otp);
     this.scheduleAutoRefresh(result.meta, rememberMe);
     return result;
   }
@@ -197,22 +198,31 @@ class AuthClientImpl implements AuthClient {
     }
   }
 
-  private async requestTokens(body: URLSearchParams, rememberMe: boolean): Promise<LoginResult> {
-    const endpoint = getTokenEndpoint(this.iamClientUuid);
+  private async requestTokens(
+    body: URLSearchParams,
+    rememberMe: boolean,
+    otp?: string,
+  ): Promise<LoginResult> {
+    const endpoint = getTokenEndpoint();
+
+    const headers: Record<string, string> = {
+      [OAUTH.HEADER_CONTENT_TYPE]: OAUTH.CONTENT_TYPE_FORM_URLENCODED,
+    };
+
+    const trimmedOtp = otp?.trim();
+    if (trimmedOtp) {
+      headers[OAUTH.HEADER_OTP] = trimmedOtp;
+    }
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        [OAUTH.HEADER_CONTENT_TYPE]: OAUTH.CONTENT_TYPE_FORM_URLENCODED,
-      },
+      headers,
       body,
     });
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(
-        `Token endpoint responded with ${response.status} ${response.statusText}: ${text || 'no body'}`,
-      );
+      throw new TokenRequestError(response.status, response.statusText, text);
     }
 
     let data: RawTokenResponse | null = null;
@@ -278,7 +288,7 @@ class AuthClientImpl implements AuthClient {
 
   async fetchCurrentUserProfile(): Promise<CurrentUserProfile | null> {
     const token = this.tokenStorage.getToken();
-    const meEndpoint = getMeEndpoint(this.iamClientUuid);
+    const meEndpoint = getMeEndpoint();
 
     if (!token || !meEndpoint) {
       return null;

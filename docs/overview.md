@@ -115,3 +115,7 @@ A detailed description of the architecture, token handling algorithm, IdP-driven
 - TypeScript and TSX source files (`.ts`, `.tsx`) are licensed under the Apache 2.0 License.
 - Each source file includes a copyright
   notice for Genesis Corporation for 2025.
+
+## Testing
+
+See [Testing OIDC UI](testing.md) for automated checks and local stand testing.
