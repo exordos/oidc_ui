@@ -18,8 +18,10 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { TokenRequestError, type AuthClient } from '../../services/authClient';
+import { getRequiredAccountAction } from '../../services/requiredAccountAction';
 import type { TokenStorage } from '../../services/tokenStorage';
 import { PrimaryButton } from '../ui/PrimaryButton/PrimaryButton';
+import { RequiredAccountActionDialog } from './RequiredAccountActionDialog';
 import { TextInput } from '../ui/TextInput/TextInput';
 
 interface LoginFormProps {
@@ -28,6 +30,7 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ authClient, tokenStorage }: LoginFormProps): JSX.Element {
+  const [requiredAction, setRequiredAction] = useState<{ redirectUrl: string | null } | null>(null);
   const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
@@ -50,6 +53,7 @@ export function LoginForm({ authClient, tokenStorage }: LoginFormProps): JSX.Ele
     }
 
     setError(null);
+    setRequiredAction(null);
 
     if (!rememberMe) {
       tokenStorage.clearAll();
@@ -68,7 +72,14 @@ export function LoginForm({ authClient, tokenStorage }: LoginFormProps): JSX.Ele
       tokenStorage.setCurrentUser(rememberMe ? login : null);
     } catch (error) {
       if (error instanceof TokenRequestError) {
-        if (error.status === 401) {
+        const action = getRequiredAccountAction(error);
+        if (action) {
+          setOtpRequired(false);
+          setOtp('');
+          setPassword('');
+          setShowPassword(false);
+          setRequiredAction(action);
+        } else if (error.status === 401) {
           if (!otpRequired) {
             setOtpRequired(true);
             setError(null);
@@ -85,67 +96,73 @@ export function LoginForm({ authClient, tokenStorage }: LoginFormProps): JSX.Ele
       } else {
         setError('Login failed. Please try again.');
       }
-      // eslint-disable-next-line no-console
-      console.error('Login failed', error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form className="login-form" onSubmit={handleSubmit}>
-      <TextInput
-        label="Login"
-        placeholder="Enter your username or email"
-        value={login}
-        onChange={setLogin}
-        autoComplete="username"
-        icon={<span className="icon icon--user" />}
-      />
-      <TextInput
-        label="Password"
-        placeholder="Enter your password"
-        value={password}
-        onChange={setPassword}
-        type={showPassword ? 'text' : 'password'}
-        autoComplete="current-password"
-        icon={
-          <button
-            type="button"
-            className={`password-toggle ${
-              showPassword ? 'password-toggle--visible' : 'password-toggle--hidden'
-            }`}
-            onClick={() => setShowPassword((current) => !current)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
-          >
-            <span className="password-toggle__icon" aria-hidden="true" />
-          </button>
-        }
-      />
-      {otpRequired && (
-        <TextInput
-          label="One-time password"
-          placeholder="Enter your one-time password code"
-          value={otp}
-          onChange={setOtp}
-          autoComplete="one-time-code"
+    <>
+      {requiredAction && (
+        <RequiredAccountActionDialog
+          redirectUrl={requiredAction.redirectUrl}
+          onClose={() => setRequiredAction(null)}
         />
       )}
-      <div className="login-form__remember-row">
-        <label className="login-form__remember">
-          <input
-            type="checkbox"
-            className="login-form__remember-checkbox"
-            checked={rememberMe}
-            onChange={(event) => setRememberMe(event.target.checked)}
+      <form className="login-form" onSubmit={handleSubmit}>
+        <TextInput
+          label="Login"
+          placeholder="Enter your username or email"
+          value={login}
+          onChange={setLogin}
+          autoComplete="username"
+          icon={<span className="icon icon--user" />}
+        />
+        <TextInput
+          label="Password"
+          placeholder="Enter your password"
+          value={password}
+          onChange={setPassword}
+          type={showPassword ? 'text' : 'password'}
+          autoComplete="current-password"
+          icon={
+            <button
+              type="button"
+              className={`password-toggle ${
+                showPassword ? 'password-toggle--visible' : 'password-toggle--hidden'
+              }`}
+              onClick={() => setShowPassword((current) => !current)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              <span className="password-toggle__icon" aria-hidden="true" />
+            </button>
+          }
+        />
+        {otpRequired && (
+          <TextInput
+            label="One-time password"
+            placeholder="Enter your one-time password code"
+            value={otp}
+            onChange={setOtp}
+            autoComplete="one-time-code"
           />
-          <span className="login-form__remember-label">Remember me on this computer</span>
-        </label>
-      </div>
-      {error && <div className="login-form__error">{error}</div>}
-      <PrimaryButton type="submit" fullWidth>
-        {isSubmitting ? 'LOGGING IN…' : 'LOGIN'}
-      </PrimaryButton>
-    </form>
+        )}
+        <div className="login-form__remember-row">
+          <label className="login-form__remember">
+            <input
+              type="checkbox"
+              className="login-form__remember-checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+            />
+            <span className="login-form__remember-label">Remember me on this computer</span>
+          </label>
+        </div>
+        {error && <div className="login-form__error">{error}</div>}
+        <PrimaryButton type="submit" fullWidth>
+          {isSubmitting ? 'LOGGING IN…' : 'LOGIN'}
+        </PrimaryButton>
+      </form>
+    </>
   );
 }
