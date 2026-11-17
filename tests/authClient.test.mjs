@@ -66,6 +66,19 @@ test('login, refresh and profile use the server-authenticated default client', a
     assert.equal(requests[3].url, requests[0].url);
     assert.equal(requests[3].options.headers['X-OTP'], '123456');
     assert.equal(requests[3].options.body.get('password'), 'test-password');
+    const requiredAction = {
+      error: 'external_action_required',
+      error_description: 'Complete the required actions in Keycloak, then sign in again.',
+      redirect_url: 'https://kc.example/realms/company/account/',
+    };
+    const previousTokens = { ...tokens };
+    globalThis.fetch = async () => Response.json(requiredAction, { status: 400 });
+    await assert.rejects(
+      client.loginWithPassword({ login: 'admin', password: 'test-password' }),
+      (error) => error instanceof TokenRequestError && error.status === 400 &&
+        JSON.stringify(JSON.parse(error.responseBody)) === JSON.stringify(requiredAction),
+    );
+    assert.deepEqual(tokens, previousTokens);
     globalThis.fetch = async () => Response.json({ error: 'invalid_grant' }, { status: 401 });
     await assert.rejects(
       client.loginWithPassword({ login: 'admin', password: 'test-password' }),

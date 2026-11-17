@@ -640,3 +640,42 @@ body {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.account-action-dialog {
+  box-sizing: border-box;
+  width: min(480px, calc(100% - 32px));
+  max-height: calc(100% - 32px);
+  padding: 32px;
+  border: 1px solid var(--rq-color-border-user-widget);
+  border-radius: 24px;
+  background: #11131e;
+  color: var(--rq-color-text-primary);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.account-action-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(5px);
+}
+
+.account-action-dialog h2 {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+}
+
+.account-action-dialog p {
+  color: var(--rq-color-text-muted);
+  line-height: 1.6;
+}
+
+.account-action-dialog__link {
+  display: block;
+  margin: 24px 0;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+
+.account-action-dialog__new-tab {
+  font-size: 0.75rem;
+}
