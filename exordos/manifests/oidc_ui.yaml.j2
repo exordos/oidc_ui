@@ -96,6 +96,8 @@ resources:
           - kind: auto_header
             headers:
               - 'X-Forwarded-For'
+              - 'X-Forwarded-Proto'
+              - 'X-Forwarded-Port'
           - kind: set_header
             name: Host
             value: f"core.{$oidc_ui.imports.$local_domain:name}"
