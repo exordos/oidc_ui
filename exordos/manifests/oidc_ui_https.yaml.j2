@@ -90,6 +90,15 @@ resources:
           weight: 1
 
   $oidc_ui_https.imports.$core_lb.vhosts:
+    # Plain HTTP vhost for the same hostname: it redirects browsers to
+    # HTTPS and keeps API forwarding alive for clients that still use http://.
+    oidc_lb_http:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $oidc_ui_https.imports.$core_lb:uuid
+      domains:
+        - $core.vs.variables.$oidc_ui_domain:value
+      protocol: http
+      port: 80
     oidc_lb_https:
       project_id: "12345678-c625-4fee-81d5-f691897b8142"
       parent: $oidc_ui_https.imports.$core_lb:uuid
@@ -147,6 +156,53 @@ resources:
             url: "{{ repository | default('https://repo.exordos.com/exordos-elements') }}/oidc_ui_https/{{ version }}/artifacts/web.tar.zst"
             is_spa: true
 
+  $core.network.lb.$core_lb.vhosts.$oidc_lb_http.routes:
+    # Keep /api/core/ reachable over plain HTTP. 301/302 turn POST into GET,
+    # so redirecting the API would break authorization and token form
+    # submissions for clients that still resolve http:// endpoints. The
+    # longer prefix keeps this route ahead of the catch-all redirect.
+    oidc_lb_http_core_route:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $core.network.lb.$core_lb.vhosts.$oidc_lb_http:uuid
+      condition:
+        kind: prefix
+        value: /api/core/
+        allowed_ips:
+          - 0.0.0.0/0
+        actions:
+          - kind: backend
+            pool: $core.network.lb.$core_lb.backend_pools.$oidc_core_http:uuid
+            protocol:
+              kind: http
+        modifiers:
+          - kind: auto_header
+            headers:
+              - 'X-Forwarded-For'
+              - 'X-Forwarded-Proto'
+              - 'X-Forwarded-Port'
+          - kind: set_header
+            name: Host
+            value: f"core.{$oidc_ui_https.imports.$local_domain:name}"
+          - kind: set_header
+            name: X-Forwarded-Host
+            value: $core.vs.variables.$oidc_ui_domain:value
+
+    # Everything else on http:// redirects to the same URL on https://.
+    # The LB renders this as `return 301 <url>$request_uri;`, so the
+    # original path and query string are preserved.
+    oidc_ui_http_redirect:
+      project_id: "12345678-c625-4fee-81d5-f691897b8142"
+      parent: $core.network.lb.$core_lb.vhosts.$oidc_lb_http:uuid
+      condition:
+        kind: prefix
+        value: /
+        allowed_ips:
+          - 0.0.0.0/0
+        actions:
+          - kind: redirect
+            url: f"https://{$core.vs.variables.$oidc_ui_domain:value}"
+            code: 301
+
 exports:
   var_oidc_ui_tls_crt:
     link: "$core.vs.variables.$oidc_ui_tls_crt"
@@ -154,5 +210,7 @@ exports:
     link: "$core.vs.variables.$oidc_ui_tls_key"
   var_oidc_ui_domain:
     link: "$core.vs.variables.$oidc_ui_domain"
+  oidc_lb_http_vhost:
+    link: "$core.network.lb.$core_lb.vhosts.$oidc_lb_http"
   oidc_lb_https_vhost:
     link: "$core.network.lb.$core_lb.vhosts.$oidc_lb_https"
